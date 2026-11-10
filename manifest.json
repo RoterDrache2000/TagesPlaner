@@ -1,6 +1,6 @@
 {
-  "name": "Tag",
-  "short_name": "Tag",
+  "name": "TagesPlaner",
+  "short_name": "TagesPlaner",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -144,6 +144,6 @@
         h('button.row', { onclick: () => { s.close(); TP.restore(); } }, h('span.t', null, 'Backup wiederherstellen'), TP.ic('chev', 'chev'))),
       h('button.btn.primary', { onclick: () => { s.close(); TP.render(); } }, 'Fertig'),
       TP.armBtn('Alle Daten löschen', 'Wirklich alles löschen?', () => { TP.wipe(); s.close(); TP.render(); TP.toast('Alles zurückgesetzt.'); }, 'btn.danger'),
-      h('p.note', { style: 'text-align:center' }, 'Tag · Version ' + st.version + ' · Alle Daten bleiben auf diesem Gerät.')));
+      h('p.note', { style: 'text-align:center' }, 'TagesPlaner · Version ' + st.version + ' · Alle Daten bleiben auf diesem Gerät.')));
   };
 })(window.TP);
