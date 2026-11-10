@@ -19,7 +19,7 @@
     const list = TP.routinesToday();
     if (act) root.append(routineBlock(act, true));
     list.filter((r) => r !== act).forEach((r) => root.append(routineBlock(r, false)));
-    if (!list.length) root.append(h('div.sec', null, TP.secH('Routine'), h('div.list', null, h('p.empty', null, 'Heute ist keine Routine geplant. Routinen bearbeitest du unter Planen.'))));
+    if (!list.length) root.append(h('div.sec', null, TP.secH('Routine'), h('div.list', null, h('p.empty', null, 'Noch keine Routine. Unter Planen → Routinen legst du Schritte an.'))));
 
     // Von gestern
     const od = TP.overdue();
@@ -45,7 +45,7 @@
   function banners(root) {
     const d = TP.data;
     if (d.justMigrated) {
-      root.append(h('div.banner', null, h('p', null, 'Deine Morgenroutine ist übernommen. Gewohnheiten, Aufgaben und eine Abendroutine sind neu dazugekommen.'),
+      root.append(h('div.banner', null, h('p', null, 'Deine Morgenroutine ist übernommen. Gewohnheiten, Aufgaben und weitere Routinen kannst du jetzt dazu anlegen.'),
         h('button.btn.ghost.small', { onclick: () => { delete d.justMigrated; TP.render(); } }, 'OK')));
     }
     const last = d.settings.lastBackup;

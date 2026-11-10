@@ -27,26 +27,11 @@ window.TP = window.TP || {};
     const t = TP.today();
     return {
       settings: { version: VERSION, dayStart: 3, bedtime: '23:00', graceDays: 2, lastBackup: null, created: t },
+      // Startet leer: eine leere Routine „Morgen“ (die alte Morgenroutine wird hier übernommen)
       routines: [
-        { id: 'morgen', name: 'Morgen', start: '05:00', days: [0, 1, 2, 3, 4, 5, 6], steps: [
-          { id: TP.uid(), text: 'Ein Glas Wasser', min: 1 },
-          { id: TP.uid(), text: 'Bett machen', min: 2 },
-          { id: TP.uid(), text: 'Duschen', min: 8 },
-          { id: TP.uid(), text: 'Zähne putzen', min: 3 },
-          { id: TP.uid(), text: 'Dehnen', min: 5 },
-          { id: TP.uid(), text: 'Frühstück', min: 12 },
-          { id: TP.uid(), text: 'Tag planen', min: 3 }
-        ] },
-        { id: 'abend', name: 'Abend', start: '21:00', days: [0, 1, 2, 3, 4, 5, 6], steps: [
-          { id: TP.uid(), text: 'Küche aufräumen', min: 10 },
-          { id: TP.uid(), text: 'Kleidung für morgen rauslegen', min: 3 },
-          { id: TP.uid(), text: 'Morgen planen', min: 5 }
-        ] }
+        { id: 'morgen', name: 'Morgen', start: '05:00', days: [0, 1, 2, 3, 4, 5, 6], steps: [] }
       ],
-      habits: [
-        { id: 'wasser', name: 'Wasser trinken', kind: 'count', target: 8, unit: 'Gläser', days: [0, 1, 2, 3, 4, 5, 6], created: t, archived: false },
-        { id: 'lesen', name: 'Lesen', kind: 'check', target: 1, unit: '', days: [0, 1, 2, 3, 4, 5, 6], created: t, archived: false }
-      ],
+      habits: [],
       tasks: [],
       days: {}
     };

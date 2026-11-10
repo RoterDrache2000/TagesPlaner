@@ -73,7 +73,7 @@
           h('div.streak', null, h('b', null, streak), h('small', null, streak === 1 ? 'Tag Serie' : 'Tage Serie'))),
         week));
     });
-    if (!list.length) wrap.append(h('div.list', null, h('p.empty', null, 'Noch keine Gewohnheiten.')));
+    if (!list.length) wrap.append(h('div.list', null, h('p.empty', null, 'Noch keine Gewohnheiten. Lege unten deine erste an.')));
     root.append(wrap);
     root.append(h('button.add-h', { onclick: () => {
       const x = { id: TP.uid(), name: '', kind: 'check', target: 1, unit: '', days: [0, 1, 2, 3, 4, 5, 6], created: TP.today(), archived: false };
