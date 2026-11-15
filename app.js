@@ -40,6 +40,20 @@
     const bar = document.getElementById('tabbar');
     TABS.forEach(([id, label, icon]) => bar.append(h('button.tab', { 'data-tab': id, onclick: () => TP.go(id), html: TP.icon(icon) + '<span>' + label + '</span>' })));
     window.addEventListener('hashchange', route);
+    // Kein Zoomen: Zwei-Finger-Zoom (Safari ignoriert user-scalable=no) und Doppeltippen (über CSS touch-action)
+    ['gesturestart', 'gesturechange', 'gestureend'].forEach((n) => document.addEventListener(n, (e) => e.preventDefault(), { passive: false }));
+    document.addEventListener('touchmove', (e) => { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); }, { passive: false });
+    // iPhone: Tippen neben ein Eingabefeld schließt die Tastatur
+    document.addEventListener('touchstart', (e) => {
+      const a = document.activeElement;
+      if (!a || !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+      if (e.target.closest('input,textarea,select,button,label,a')) return;
+      a.blur();
+    }, { passive: true });
+    document.addEventListener('mousedown', (e) => {
+      const a = document.activeElement;
+      if (a && /^(INPUT|TEXTAREA)$/.test(a.tagName) && !e.target.closest('input,textarea,select,button,label,a')) a.blur();
+    });
     // Neuer Tag oder neue Tageszeit: beim Zurückkehren in die App neu zeichnen
     document.addEventListener('visibilitychange', () => { if (!document.hidden && !document.querySelector('.scrim,.focus')) TP.render(); });
     setInterval(() => { if (TP.today() !== lastDay && !document.querySelector('.scrim,.focus')) TP.render(); }, 60000);

@@ -31,6 +31,9 @@
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink)}
+/* Kein Doppeltipp-Zoom, keine Schrift-Vergrößerung beim Drehen */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+*{touch-action:manipulation}
 body{font-family:var(--sans);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;
   padding-top:env(safe-area-inset-top,0px)}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -245,3 +248,12 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .steped{flex-wrap:wrap;row-gap:0}
 .steped input:not(.min){flex:1 1 100%;font-weight:500}
 .steped select{flex:1;max-width:none}
+.sheet-h{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.sheet-h .iconbtn{width:32px;height:32px;border-radius:99px}
+
+/* Kein automatisches Hineinzoomen beim Tippen in ein Feld (iPhone zoomt bei Schrift unter 16px) */
+input,select,textarea,.steped input,.steped select{font-size:16px}
+.steped input.min{width:40px}
+.sheet,.focus{overscroll-behavior:contain}
+.f-top .lbl .fx{width:36px;height:36px;padding:0;border-radius:99px;background:var(--surface-2);color:var(--muted);display:grid;place-items:center}
+.ring button{bottom:20%;background:var(--accent-soft);color:var(--accent);font-size:14px;font-weight:600;padding:6px 16px;border-radius:99px;min-width:84px}

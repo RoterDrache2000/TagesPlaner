@@ -35,7 +35,8 @@
     left: '<path d="M15 6l-6 6 6 6"/>',
     trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
-    edit: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/>'
+    edit: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/>',
+    x: '<path d="M6 6l12 12M18 6L6 18"/>'
   };
   TP.icon = (name, cls) => '<svg class="ico' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24" aria-hidden="true">' + P[name] + '</svg>';
   TP.ic = (name, cls) => h('span', { html: TP.icon(name, cls), style: 'display:contents' });
@@ -54,16 +55,44 @@
     clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 2600);
   };
 
-  // Bottom-Sheet
+  // Hintergrund festhalten, solange ein Fenster offen ist (iPhone: overflow:hidden allein reicht nicht)
+  let locks = 0, lockY = 0;
+  TP.lockScroll = function () {
+    if (locks++) return;
+    lockY = window.scrollY;
+    const b = document.body.style;
+    b.position = 'fixed'; b.top = -lockY + 'px'; b.left = '0'; b.right = '0'; b.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+  };
+  TP.unlockScroll = function () {
+    if (!locks || --locks) return;
+    const b = document.body.style;
+    b.position = b.top = b.left = b.right = b.overflow = '';
+    document.documentElement.style.overflow = '';
+    window.scrollTo(0, lockY);
+  };
+  // Wischen außerhalb des scrollbaren Bereichs bewegt nichts
+  TP.trapTouch = function (layer, scrollSel) {
+    layer.addEventListener('touchmove', (e) => {
+      const sc = scrollSel && e.target.closest(scrollSel);
+      if (!sc || sc.scrollHeight <= sc.clientHeight) e.preventDefault();
+    }, { passive: false });
+  };
+
+  // Bottom-Sheet (immer mit X oben rechts)
   TP.sheet = function (title, body, opts) {
     opts = opts || {};
     const scrim = h('div.scrim');
-    const close = () => { scrim.remove(); document.removeEventListener('keydown', esc); if (opts.onClose) opts.onClose(); };
+    let closed = false;
+    const close = () => { if (closed) return; closed = true; scrim.remove(); document.removeEventListener('keydown', esc); TP.unlockScroll(); if (opts.onClose) opts.onClose(); };
     const esc = (e) => { if (e.key === 'Escape') close(); };
-    const sheet = h('div.sheet', { role: 'dialog', 'aria-modal': 'true', 'aria-label': title }, h('div.grab'), title ? h('h2', null, title) : null, body);
+    const sheet = h('div.sheet', { role: 'dialog', 'aria-modal': 'true', 'aria-label': title }, h('div.grab'),
+      h('div.sheet-h', null, h('h2', null, title || ''), h('button.iconbtn', { type: 'button', 'aria-label': 'Schließen', html: TP.icon('x'), onclick: () => close() })), body);
     scrim.append(sheet);
     scrim.addEventListener('click', (e) => { if (e.target === scrim) close(); });
     document.addEventListener('keydown', esc);
+    TP.trapTouch(scrim, '.sheet');
+    TP.lockScroll();
     document.body.append(scrim);
     return { close, el: sheet };
   };

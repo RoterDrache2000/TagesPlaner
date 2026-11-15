@@ -19,6 +19,9 @@ window.TP = window.TP || {};
   TP.minutesNow = () => { const d = TP.now(); return d.getHours() * 60 + d.getMinutes(); };
   TP.toMin = (hhmm) => { const [h, m] = String(hhmm || '0:0').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
   TP.fmtMin = (m) => Math.floor(m / 60) + ':' + pad(Math.round(m % 60));
+  // Dauer eines Schritts: Minuten (min) + Sekunden (sec)
+  TP.stepSec = (s) => Math.max(0, (parseInt(s.min, 10) || 0) * 60 + (parseInt(s.sec, 10) || 0));
+  TP.fmtDur = (t) => { const m = Math.floor(t / 60), s = t % 60; return !m ? s + ' s' : !s ? m + ' min' : m + ':' + pad(s) + ' min'; };
   TP.uid = () => Math.random().toString(36).slice(2, 9);
   TP.WD = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
@@ -142,6 +145,7 @@ window.TP = window.TP || {};
     list.forEach((r) => { if (rel(TP.toMin(r.start)) <= now) act = r; });
     return act;
   };
+  TP.rLabel = (r) => r.name === 'Tag' ? 'Tagesroutine' : (r.name === 'Morgen' || r.name === 'Abend') ? r.name + 'routine' : r.name;
   TP.rDone = (r, date) => { const done = TP.peek(date || TP.today()).steps; return r.steps.filter((s) => done.includes(s.id)).length; };
   TP.toggleStep = function (r, step, date) {
     const day = TP.day(date);

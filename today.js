@@ -19,7 +19,7 @@
     const list = TP.routinesToday();
     if (act) root.append(routineBlock(act, true));
     list.filter((r) => r !== act).forEach((r) => root.append(routineBlock(r, false)));
-    if (!list.length) root.append(h('div.sec', null, TP.secH('Routine'), h('div.list', null, h('p.empty', null, 'Noch keine Routine. Unter Planen → Routinen legst du Schritte an.'))));
+    if (!list.length) root.append(h('div.sec', null, TP.secH('Routine'), h('div.list', null, h('p.empty', null, 'Noch keine Routine für heute.'), h('button.row', { style: 'color:var(--accent);font-weight:600;border-top:1px solid var(--line)', onclick: () => TP.addRoutine() }, TP.ic('plus'), 'Routine anlegen'))));
 
     // Von gestern
     const od = TP.overdue();
@@ -102,7 +102,7 @@
     const complete = n === total;
     const expanded = open.has(r.id) || (isActive && !complete && !closed.has(r.id));
     const sec = h('div.sec');
-    const label = r.name === 'Morgen' || r.name === 'Abend' ? r.name + 'routine' : r.name;
+    const label = TP.rLabel(r);
     if (!expanded) {
       const day = TP.peek(today);
       const dur = day['end_' + r.id] != null && day['start_' + r.id] != null ? Math.max(1, day['end_' + r.id] - day['start_' + r.id]) : null;
@@ -116,7 +116,7 @@
     sec.append(h('div.hair', null, h('div', { style: 'width:' + (n / total * 100) + '%' })));
     sec.append(h('div.list', null, r.steps.map((s) => h('button.row' + (done.includes(s.id) ? '.done' : ''),
       { 'aria-pressed': String(done.includes(s.id)), onclick: () => { TP.toggleStep(r, s); if (TP.rDone(r, today) === total) { open.delete(r.id); TP.toast(label + ' geschafft.'); } TP.render(); } },
-      TP.boxEl(), h('span.t', null, s.text), s.min ? h('span.d', null, s.min + ' min') : null))));
+      TP.boxEl(), h('span.t', null, s.text), TP.stepSec(s) ? h('span.d', null, TP.fmtDur(TP.stepSec(s))) : null))));
     if (!complete) sec.append(h('button.btn.primary', { style: 'margin-top:12px', onclick: () => TP.focus(r) }, TP.ic('play'), 'Fokus-Modus starten'));
     return sec;
   }
@@ -126,28 +126,58 @@
     const today = TP.today();
     let queue = r.steps.filter((s) => !TP.peek(today).steps.includes(s.id)).map((s) => s.id);
     const started = TP.minutesNow();
-    let remain = null, total = null, running = true, timer = null;
-    const ov = h('div.focus', { role: 'dialog', 'aria-label': 'Fokus-Modus' });
+    // Timer: startet NICHT von selbst, erst nach Tippen auf „Start“
+    let remain = null, total = null, running = false, endAt = 0, timer = null, audio = null;
+    const ov = h('div.focus', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Fokus-Modus' });
     const inner = h('div.focus-in');
     ov.append(inner);
+    TP.trapTouch(ov, null);
+    TP.lockScroll();
     document.body.append(ov);
-    document.body.style.overflow = 'hidden';
+    const esc = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', esc);
 
-    function close() { clearInterval(timer); ov.remove(); document.body.style.overflow = ''; TP.render(); }
-    function startTimer(step) {
-      clearInterval(timer);
-      total = step.min ? step.min * 60 : null; remain = total; running = true;
-      if (!total) return;
-      timer = setInterval(() => {
-        if (!running || remain <= 0) return;
-        remain--;
-        const v = inner.querySelector('.ring .v'); const c = inner.querySelectorAll('.ring circle')[1];
-        if (v) v.textContent = fmt(remain);
-        if (c) c.setAttribute('stroke-dasharray', (remain / total * 100).toFixed(2) + ' 100');
-        if (remain === 0 && navigator.vibrate) navigator.vibrate(200);
-      }, 1000);
+    function close() { clearInterval(timer); ov.remove(); document.removeEventListener('keydown', esc); TP.unlockScroll(); TP.render(); }
+    function startTimer(step) { // neuer Schritt: Timer steht bereit, läuft aber noch nicht
+      clearInterval(timer); running = false;
+      total = TP.stepSec(step) || null; remain = total;
+    }
+    function beep() {
+      try {
+        if (!audio) return;
+        [0, 0.35, 0.7].forEach((t) => {
+          const o = audio.createOscillator(), g = audio.createGain();
+          o.frequency.value = 880; g.gain.setValueAtTime(0.25, audio.currentTime + t); g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + t + 0.25);
+          o.connect(g); g.connect(audio.destination); o.start(audio.currentTime + t); o.stop(audio.currentTime + t + 0.3);
+        });
+      } catch (e) {}
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    }
+    function paint() {
+      const v = inner.querySelector('.ring .v'); const c = inner.querySelectorAll('.ring circle')[1]; const b = inner.querySelector('.ring button');
+      if (v) v.textContent = fmt(remain);
+      if (c) c.setAttribute('stroke-dasharray', (remain / total * 100).toFixed(2) + ' 100');
+      if (b) b.textContent = btnLabel();
+    }
+    const btnLabel = () => remain === 0 ? 'Nochmal' : running ? 'Pause' : remain === total ? 'Start' : 'Weiter';
+    function toggle() {
+      if (!audio) { try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+      if (running) { running = false; clearInterval(timer); }
+      else {
+        if (remain === 0) remain = total;
+        running = true; endAt = Date.now() + remain * 1000;
+        clearInterval(timer);
+        timer = setInterval(() => {
+          remain = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+          if (remain === 0) { running = false; clearInterval(timer); beep(); }
+          paint();
+        }, 250);
+      }
+      paint();
     }
     const fmt = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+
+    const xBtn = () => h('button.iconbtn.fx', { type: 'button', 'aria-label': 'Schließen', html: TP.icon('x'), onclick: close });
 
     function render() {
       inner.innerHTML = '';
@@ -158,9 +188,9 @@
         clearInterval(timer);
         const mins = Math.max(1, TP.minutesNow() - started);
         const next = TP.data.tasks.find((t) => t.date === today && !t.done && t.top) || TP.data.tasks.find((t) => t.date === today && !t.done);
-        inner.append(h('div.f-top', null, bars),
+        inner.append(h('div.f-top', null, bars, h('div.lbl', null, h('span'), xBtn())),
           h('div.f-done', null, h('div.bigcheck', { html: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' }),
-            h('p.f-name', null, (r.name === 'Morgen' || r.name === 'Abend' ? r.name + 'routine' : r.name) + ' geschafft.'),
+            h('p.f-name', null, (TP.rLabel(r)) + ' geschafft.'),
             h('p.f-note.tnum', null, r.steps.length + ' Schritte, diesmal ' + mins + ' min.')),
           h('div.f-bot', null, next ? h('p.f-next', null, 'Als Nächstes: ', h('b', null, next.title)) : null,
             h('button.btn.ghost', { onclick: close }, 'Zurück zu Heute')));
@@ -170,15 +200,15 @@
       const pos = r.steps.indexOf(step) + 1;
       const nextStep = queue[1] ? r.steps.find((s) => s.id === queue[1]) : null;
       let ring;
-      if (step.min) {
+      if (total) {
         ring = h('div.ring', { html: '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" fill="none" stroke="var(--surface-2)" stroke-width="5"/><circle cx="50" cy="50" r="44" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" pathLength="100" stroke-dasharray="' + (remain / total * 100).toFixed(2) + ' 100"/></svg><div class="v">' + fmt(remain) + '</div>' });
-        ring.append(h('button', { onclick: (e) => { running = !running; e.currentTarget.textContent = running ? 'Pause' : 'Weiter'; } }, running ? 'Pause' : 'Weiter'));
+        ring.append(h('button', { type: 'button', onclick: toggle }, btnLabel()));
       } else {
         ring = h('div.ring', { html: '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" fill="none" stroke="var(--surface-2)" stroke-width="5"/></svg><div class="v s">' + pos + ' / ' + r.steps.length + '</div>' });
       }
       inner.append(
-        h('div.f-top', null, bars, h('div.lbl.tnum', null, h('span', null, 'Schritt ' + pos + ' von ' + r.steps.length), h('button', { onclick: close }, 'Schließen'))),
-        h('div.f-mid', null, ring, h('div', null, h('p.f-name', null, step.text), step.min ? h('p.f-note', null, 'Etwa ' + step.min + (step.min === 1 ? ' Minute' : ' Minuten')) : null)),
+        h('div.f-top', null, bars, h('div.lbl.tnum', null, h('span', null, 'Schritt ' + pos + ' von ' + r.steps.length), xBtn())),
+        h('div.f-mid', null, ring, h('div', null, h('p.f-name', null, step.text), total ? h('p.f-note', null, TP.fmtDur(total)) : null)),
         h('div.f-bot', null,
           h('p.f-next', null, nextStep ? ['Danach: ', h('b', null, nextStep.text)] : 'Letzter Schritt'),
           h('div.f-btns', null,

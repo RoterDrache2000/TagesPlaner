@@ -39,11 +39,27 @@
       h('div.list', null, TP.data.routines.map((r) => h('button.row', { onclick: () => TP.editRoutine(r) },
         h('span.t', null, r.name, h('small', null, 'ab ' + r.start + ' Uhr · ' + r.steps.length + ' Schritte · ' + (r.days.length === 7 ? 'täglich' : r.days.map((i) => TP.WD[i]).join(', ')))),
         TP.ic('chev', 'chev'))),
-        h('button.row', { style: 'color:var(--accent);font-weight:600', onclick: () => {
-          const r = { id: TP.uid(), name: 'Neue Routine', start: '12:00', days: [0, 1, 2, 3, 4, 5, 6], steps: [] };
-          TP.data.routines.push(r); TP.save(); TP.editRoutine(r, true);
-        } }, TP.ic('plus'), 'Routine hinzufügen'))));
+        h('button.row', { style: 'color:var(--accent);font-weight:600', onclick: addRoutine }, TP.ic('plus'), 'Routine hinzufügen'))));
   };
+
+  // Routine hinzufügen: Morgen, Tag, Abend oder eigene
+  TP.addRoutine = addRoutine;
+  function addRoutine() {
+    const make = (name, start) => () => {
+      const existing = name !== 'Neue Routine' && TP.data.routines.find((x) => x.name === name);
+      if (existing) return TP.editRoutine(existing); // gibt es schon: zum Bearbeiten öffnen
+      const r = { id: TP.uid(), name, start, days: [0, 1, 2, 3, 4, 5, 6], steps: [] };
+      TP.data.routines.push(r); TP.save(); TP.editRoutine(r, true);
+    };
+    const has = (n) => TP.data.routines.some((r) => r.name === n && r.steps.length);
+    const items = [
+      { label: 'Morgenroutine' + (has('Morgen') ? ' (vorhanden, bearbeiten)' : ' (ab 6:00)'), run: make('Morgen', '06:00') },
+      { label: 'Tagesroutine' + (has('Tag') ? ' (vorhanden, bearbeiten)' : ' (ab 12:00)'), run: make('Tag', '12:00') },
+      { label: 'Abendroutine' + (has('Abend') ? ' (vorhanden, bearbeiten)' : ' (ab 21:00)'), run: make('Abend', '21:00') }
+    ];
+    items.push({ label: 'Eigene Routine', run: make('Neue Routine', '12:00') });
+    TP.actions('Welche Routine?', items);
+  }
 
   // Aufgabenliste für einen Tag (date) oder für „Später“ (null)
   TP.taskSection = function (date, title, onToday) {
@@ -53,10 +69,18 @@
       .sort((a, b) => (!!a.done - !!b.done) || (b.top - a.top) || 0);
     const openN = list.filter((t) => !t.done).length;
     const sec = h('div.sec');
-    sec.append(TP.secH(onToday ? 'Aufgaben heute' : title,
+    sec.append(TP.secH(onToday ? 'Noch zu erledigen' : title,
       onToday ? h('button.link', { onclick: () => TP.go('planen') }, 'Planen') : h('span.tnum', null, list.length ? openN + ' offen' : '')));
+    const quick = onToday ? h('form.addbar', { style: 'margin-top:10px', onsubmit: (e) => {
+      e.preventDefault(); const inp = e.target.querySelector('input'); const v = inp.value.trim(); if (!v) return;
+      TP.data.tasks.push({ id: TP.uid(), title: v, date: today, top: false, done: null, created: today });
+      TP.save(); TP.render();
+      setTimeout(() => { const n = document.getElementById('quickTask'); if (n) n.focus(); }, 0);
+    } }, h('input.input#quickTask', { type: 'text', placeholder: 'Punkt notieren', autocomplete: 'off', enterkeyhint: 'done', 'aria-label': 'Punkt notieren' }),
+      h('button.btn.accent', { type: 'submit', 'aria-label': 'Hinzufügen', html: TP.icon('plus') })) : null;
     if (!list.length) {
-      sec.append(h('div.list', null, h('p.empty', null, onToday ? 'Noch nichts geplant. Unter Planen legst du Aufgaben an.' : date ? 'Nichts geplant.' : 'Hier landet alles ohne Datum.')));
+      if (onToday) { sec.append(quick); return sec; }
+      sec.append(h('div.list', null, h('p.empty', null, date ? 'Nichts geplant.' : 'Hier landet alles ohne Datum.')));
       return sec;
     }
     let rank = 0;
@@ -67,6 +91,7 @@
           TP.boxEl(), h('span.t', null, t.title, t.top && !t.done ? h('small', { style: 'color:var(--accent)' }, 'Wichtig') : null)),
         h('button.more', { 'aria-label': 'Optionen für ' + t.title, html: TP.icon('more'), onclick: () => taskMenu(t) }));
     })));
+    if (quick) sec.append(quick);
     return sec;
   };
 
@@ -95,7 +120,11 @@
   // ---------- Routine bearbeiten ----------
   TP.editRoutine = function (r, isNew) {
     const body = h('div', { style: 'display:flex;flex-direction:column;gap:16px' });
-    const s = TP.sheet(isNew ? 'Neue Routine' : 'Routine bearbeiten', body, { onClose: () => { r.steps = r.steps.filter((x) => x.text.trim()); TP.save(); TP.render(); } });
+    const s = TP.sheet(isNew ? 'Neue Routine' : 'Routine bearbeiten', body, { onClose: () => {
+      r.steps = r.steps.filter((x) => x.text.trim());
+      if (isNew && !r.steps.length && TP.data.routines.length > 1) { TP.data.routines = TP.data.routines.filter((x) => x !== r); TP.toast('Leere Routine verworfen.'); }
+      TP.save(); TP.render();
+    } });
     function draw() {
       body.innerHTML = '';
       body.append(
@@ -103,19 +132,21 @@
           h('label.field', null, h('span', null, 'Name'), h('input.input', { type: 'text', value: r.name, oninput: (e) => { r.name = e.target.value.trim() || 'Routine'; TP.save(); } })),
           h('label.field', null, h('span', null, 'Ab'), h('input.input', { type: 'time', value: r.start, onchange: (e) => { r.start = e.target.value || r.start; TP.save(); } }))),
         h('div.field', null, h('span', null, 'An diesen Tagen'), TP.dayChips(r.days, (v) => { r.days = v; TP.save(); })),
-        h('div.field', null, h('span', null, 'Schritte (Minuten sind optional und starten im Fokus-Modus einen Timer)'),
+        h('div.field', null, h('span', null, 'Schritte (Dauer in Minuten und Sekunden ist optional, im Fokus-Modus gibt es dann einen Timer)'),
           h('div.list', null,
             r.steps.map((st, i) => h('div.steped', null,
               h('input', { type: 'text', value: st.text, 'aria-label': 'Schritt ' + (i + 1), oninput: (e) => { st.text = e.target.value; TP.save(); } }),
-              h('input.min', { type: 'number', inputmode: 'numeric', min: 0, max: 120, value: st.min || '', placeholder: '–', 'aria-label': 'Minuten', oninput: (e) => { st.min = Math.max(0, Math.min(120, parseInt(e.target.value, 10) || 0)); TP.save(); } }),
+              h('input.min', { type: 'number', inputmode: 'numeric', pattern: '[0-9]*', min: 0, max: 180, value: st.min || '', placeholder: '0', 'aria-label': 'Minuten', oninput: (e) => { st.min = Math.max(0, Math.min(180, parseInt(e.target.value, 10) || 0)); TP.save(); } }),
               h('span.u', null, 'min'),
+              h('input.min', { type: 'number', inputmode: 'numeric', pattern: '[0-9]*', min: 0, max: 59, value: st.sec || '', placeholder: '0', 'aria-label': 'Sekunden', oninput: (e) => { st.sec = Math.max(0, Math.min(59, parseInt(e.target.value, 10) || 0)); TP.save(); }, onchange: (e) => { if (e.target.value !== '' && String(st.sec) !== e.target.value) e.target.value = st.sec || ''; } }),
+              h('span.u', null, 's'),
               habitSelect(st),
               h('button', { type: 'button', 'aria-label': 'Nach oben', disabled: i === 0, html: TP.icon('up'), onclick: () => { [r.steps[i - 1], r.steps[i]] = [r.steps[i], r.steps[i - 1]]; TP.save(); draw(); } }),
               TP.armBtn(TP.icon('trash'), 'Löschen?', () => { r.steps.splice(i, 1); TP.save(); draw(); }))),
             !r.steps.length ? h('p.empty', null, 'Noch keine Schritte.') : null)),
         h('form.addbar', { onsubmit: (e) => {
           e.preventDefault(); const inp = e.target.querySelector('input'); const v = inp.value.trim(); if (!v) return;
-          r.steps.push({ id: TP.uid(), text: v, min: 0 }); TP.save(); draw();
+          r.steps.push({ id: TP.uid(), text: v, min: 0, sec: 0 }); TP.save(); draw();
           setTimeout(() => { const n = body.querySelector('#newStep'); if (n) n.focus(); }, 0);
         } }, h('input.input#newStep', { type: 'text', placeholder: 'Neuer Schritt', 'aria-label': 'Neuer Schritt', enterkeyhint: 'done' }),
           h('button.btn.accent', { type: 'submit', 'aria-label': 'Schritt hinzufügen', html: TP.icon('plus') })),
