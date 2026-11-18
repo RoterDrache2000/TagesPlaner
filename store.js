@@ -36,6 +36,7 @@ window.TP = window.TP || {};
       ],
       habits: [],
       tasks: [],
+      lists: [],
       days: {}
     };
   }
@@ -60,6 +61,8 @@ window.TP = window.TP || {};
     d.routines = Array.isArray(d.routines) ? d.routines : [];
     d.habits = Array.isArray(d.habits) ? d.habits : [];
     d.tasks = Array.isArray(d.tasks) ? d.tasks : [];
+    d.lists = Array.isArray(d.lists) ? d.lists : [];
+    d.lists.forEach((l) => { l.items = Array.isArray(l.items) ? l.items : []; l.name = l.name || 'Liste'; });
     d.days = d.days && typeof d.days === 'object' ? d.days : {};
     d.routines.forEach((r) => { r.steps = r.steps || []; r.days = r.days || [0, 1, 2, 3, 4, 5, 6]; r.start = r.start || '05:00'; });
     d.habits.forEach((h) => { h.days = h.days || [0, 1, 2, 3, 4, 5, 6]; h.target = h.target || 1; h.kind = h.kind || 'check'; });

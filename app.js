@@ -5,6 +5,7 @@
     ['heute', 'Heute', 'sun'],
     ['planen', 'Planen', 'cal'],
     ['gewohnheiten', 'Gewohnheiten', 'habit'],
+    ['listen', 'Listen', 'list'],
     ['rueckblick', 'Rückblick', 'chart']
   ];
   let current = 'heute';
@@ -38,7 +39,7 @@
   function start() {
     TP.load();
     const bar = document.getElementById('tabbar');
-    TABS.forEach(([id, label, icon]) => bar.append(h('button.tab', { 'data-tab': id, onclick: () => TP.go(id), html: TP.icon(icon) + '<span>' + label + '</span>' })));
+    TABS.forEach(([id, label, icon]) => bar.append(h('button.tab', { 'data-tab': id, onclick: () => { if (id === current && TP.resetTab && TP.resetTab[id]) TP.resetTab[id](); TP.go(id); }, html: TP.icon(icon) + '<span>' + label + '</span>' })));
     window.addEventListener('hashchange', route);
     // Kein Zoomen: Zwei-Finger-Zoom (Safari ignoriert user-scalable=no) und Doppeltippen (über CSS touch-action)
     ['gesturestart', 'gesturechange', 'gestureend'].forEach((n) => document.addEventListener(n, (e) => e.preventDefault(), { passive: false }));
